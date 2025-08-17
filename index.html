@@ -1,0 +1,625 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>Fiar Chocolates — Colegio</title>
+  <meta name="theme-color" content="#1b5e20" />
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon-192.png">
+  <style>
+    :root{--ok:#1b5e20;--warn:#c62828;--muted:#666}
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial; margin:0; background:#fafafa; color:#111}
+    header{background:linear-gradient(90deg,#1b5e20,#2e7d32); color:#fff; padding:12px 16px; display:flex; gap:12px; align-items:center; flex-wrap:wrap}
+    header h1{font-size:18px; margin:0; font-weight:700}
+    .badge{font-size:12px; padding:2px 8px; border-radius:16px; background:#fff2; }
+    .wrap{padding:12px 16px; max-width:900px; margin:auto}
+    .row{display:flex; gap:8px; flex-wrap:wrap; align-items:center}
+    input,select,button{font:inherit; padding:8px 10px; border:1px solid #ddd; border-radius:8px; background:#fff}
+    button{cursor:pointer}
+    button.primary{background:#1b5e20; color:#fff; border-color:#1b5e20}
+    button.warn{background:#c62828; color:#fff; border-color:#c62828}
+    button.ghost{background:#fff; border-color:#bbb; color:#333}
+    .grid{display:grid; gap:8px}
+    .grid.cols-3{grid-template-columns:repeat(3,minmax(0,1fr))}
+    .grid.cols-2{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .card{background:#fff;border:1px solid #e8e8e8;border-radius:10px;padding:10px}
+    .muted{color:var(--muted)}
+    .totales{display:flex; gap:12px; flex-wrap:wrap}
+    .pill{background:#eee; padding:6px 10px; border-radius:999px}
+    .list{margin-top:10px; border-top:1px solid #eee}
+    .item{display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid #f0f0f0}
+    .item strong{font-weight:600}
+    .tag{font-size:12px; padding:2px 6px; border-radius:6px; background:#e8f5e9; color:#1b5e20; margin-left:6px}
+    .right{display:flex; gap:6px; align-items:center}
+    .lock{font-size:12px; padding:2px 8px; border-radius:999px; background:#fff; color:#fff}
+    .lock.locked{background:#b71c1c}
+    .lock.unlocked{background:#1b5e20}
+    dialog{border:none; border-radius:12px; width:min(520px,92%); padding:0}
+    dialog header{border-radius:12px 12px 0 0}
+    dialog .content{padding:16px}
+    .help{font-size:12px; color:#555}
+    .danger{color:#b71c1c}
+    .ok{color:#1b5e20}
+    .nowrap{white-space:nowrap}
+    @media (max-width:700px){ .grid.cols-3{grid-template-columns:1fr} .grid.cols-2{grid-template-columns:1fr 1fr} }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Fiar Chocolates</h1>
+    <span id="lockBadge" class="badge lock locked">Bloqueado</span>
+    <span class="badge" id="backupModeBadge">Sin respaldo</span>
+    <span class="badge" id="onlineBadge">Offline</span>
+    <div style="margin-left:auto" class="row">
+      <button id="btnLockToggle" class="ghost">Desbloquear</button>
+      <button id="btnPIN" class="ghost">Configurar PIN</button>
+      <button id="btnSettings" class="ghost">Respaldo</button>
+      <button id="btnExport" class="ghost">Exportar CSV</button>
+      <label class="ghost" style="display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:8px;border:1px solid #bbb;background:#fff">
+        Importar CSV <input id="fileCSV" type="file" accept=".csv" style="display:none">
+      </label>
+    </div>
+  </header>
+
+  <div class="wrap grid cols-3">
+    <div class="card">
+      <div class="grid cols-2">
+        <select id="selGrado">
+          <option value="">Todos los grados</option>
+          <option>6</option><option>7</option><option>8</option>
+          <option>9</option><option>10</option><option>11</option>
+        </select>
+        <select id="selCurso">
+          <option value="">Todos los cursos</option>
+          <option>PROFES</option>
+          <!-- Se pobla dinámicamente (p. ej., 7A, 7B, etc.) -->
+        </select>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <input id="txtBuscar" placeholder="Buscar por nombre…" style="flex:1">
+        <button id="btnNuevo" class="primary">Nuevo alumno</button>
+      </div>
+      <div class="totales" style="margin-top:8px">
+        <span class="pill">Total curso: <b id="totalCurso">0</b></span>
+        <span class="pill">Total general: <b id="totalGeneral">0</b></span>
+        <span class="pill">Alumnos: <b id="totalAlumnos">0</b></span>
+      </div>
+      <div class="list" id="lista"></div>
+    </div>
+
+    <div class="card">
+      <h3 style="margin:6px 0 12px">Movimiento rápido</h3>
+      <div class="grid cols-2">
+        <input id="monto" type="number" inputmode="numeric" placeholder="Monto (COP)">
+        <div class="row">
+          <button class="ghost quick" data-d="1000">+1k</button>
+          <button class="ghost quick" data-d="2000">+2k</button>
+          <button class="ghost quick" data-d="3000">+3k</button>
+          <button class="ghost quick" data-d="-1000">-1k</button>
+          <button class="ghost quick" data-d="-2000">-2k</button>
+        </div>
+      </div>
+      <div class="help" style="margin:8px 0">Selecciona un alumno de la lista. Con el candado <b>desbloqueado</b> puedes Sumar (fiar) o Restar (pago).</div>
+      <div class="row">
+        <button id="btnSumar" class="primary">Sumar (Fiar)</button>
+        <button id="btnRestar" class="warn">Restar (Pago)</button>
+      </div>
+      <div id="selInfo" class="help" style="margin-top:8px">Sin alumno seleccionado.</div>
+      <details style="margin-top:10px"><summary>Historial</summary>
+        <div id="historial" class="help"></div>
+      </details>
+    </div>
+
+    <div class="card">
+      <h3 style="margin:6px 0 12px">Consejos</h3>
+      <ul class="help">
+        <li>Modo <b>bloqueado</b>: puedes <b>ver</b> y <b>buscar</b>, pero no editar.</li>
+        <li>Auto‑bloqueo tras 2 min sin uso.</li>
+        <li>Respaldo automático si activas Google Drive o Sheets desde <b>Respaldo</b>.</li>
+      </ul>
+      <div class="muted" id="log"></div>
+    </div>
+  </div>
+
+  <!-- MODAL NUEVO -->
+  <dialog id="dlgNuevo">
+    <header><h3 style="margin:12px 16px;color:#fff">Nuevo alumno</h3></header>
+    <div class="content grid">
+      <input id="nuevoNombre" placeholder="Nombre completo">
+      <input id="nuevoCurso" placeholder="Curso (p. ej., 7A o PROFES)">
+      <div class="row" style="justify-content:flex-end; gap:8px">
+        <button onclick="dlgNuevo.close()">Cancelar</button>
+        <button id="btnCrear" class="primary">Crear</button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- MODAL PIN -->
+  <dialog id="dlgPIN">
+    <header><h3 style="margin:12px 16px;color:#fff">PIN de administrador</h3></header>
+    <div class="content grid">
+      <div class="help">El PIN protege los cambios. Si aún no tienes, crea uno.</div>
+      <input id="pinActual" placeholder="PIN actual (si existe)" type="password">
+      <input id="pinNuevo" placeholder="PIN nuevo (4–8 dígitos)" type="password">
+      <input id="pinNuevo2" placeholder="Repite PIN nuevo" type="password">
+      <div class="row" style="justify-content:flex-end; gap:8px">
+        <button onclick="dlgPIN.close()">Cerrar</button>
+        <button id="btnSetPIN" class="primary">Guardar PIN</button>
+      </div>
+      <hr>
+      <div class="grid">
+        <input id="pinDesbloq" placeholder="Escribe PIN para desbloquear" type="password">
+        <div class="row" style="justify-content:flex-end; gap:8px">
+          <button id="btnTryUnlock" class="primary">Desbloquear</button>
+        </div>
+        <div id="pinMsg" class="help"></div>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- MODAL SETTINGS / BACKUP -->
+  <dialog id="dlgSettings">
+    <header><h3 style="margin:12px 16px;color:#fff">Respaldo (Google)</h3></header>
+    <div class="content grid">
+      <div class="help">Elige <b>Drive</b> (archivo JSON completo) o <b>Sheets</b> (apéndice de movimientos). Se requiere iniciar sesión Google y configurar credenciales <span class="muted">(ver pasos al final del HTML)</span>.</div>
+      <div class="row">
+        <label><input type="radio" name="bkMode" value="none"> Sin respaldo</label>
+        <label><input type="radio" name="bkMode" value="drive"> Drive (JSON)</label>
+        <label><input type="radio" name="bkMode" value="sheets"> Sheets (movimientos)</label>
+      </div>
+      <input id="cfgApiKey" placeholder="API Key">
+      <input id="cfgClientId" placeholder="OAuth Client ID">
+      <input id="cfgSheetId" placeholder="Sheet ID (si usas Sheets)">
+      <input id="cfgDriveFolder" placeholder="Drive Folder ID (opcional)">
+      <div class="row">
+        <button id="btnGoogleInit" class="ghost">Inicializar Google</button>
+        <button id="btnGoogleSign" class="primary">Iniciar sesión</button>
+        <button id="btnGoogleSignOut" class="warn">Cerrar sesión</button>
+      </div>
+      <div class="row">
+        <button id="btnBackupNow" class="ghost">Respaldar ahora</button>
+        <button id="btnFlush" class="ghost">Enviar pendientes</button>
+      </div>
+      <div id="gstatus" class="help"></div>
+      <div class="row" style="justify-content:flex-end; gap:8px">
+        <button onclick="dlgSettings.close()">Cerrar</button>
+        <button id="btnSaveCfg" class="primary">Guardar</button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- Google APIs (solo si activas respaldo) -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <script src="https://apis.google.com/js/api.js" async defer></script>
+
+  <script>
+  // ====== Utilidades ======
+  const $ = sel => document.querySelector(sel);
+  const $$ = sel => Array.from(document.querySelectorAll(sel));
+  const log = (m) => { const el = $('#log'); el.textContent = m; };
+
+  const dbKey='chocoDB_v3';
+  const histKey='chocoHIST_v3';  // para sheets
+  const pinKey='chocoPIN_v3';
+  const cfgKey='chocoCFG_v3';
+  const pendKey='chocoPEND_v3';
+
+  let state = {
+    data: JSON.parse(localStorage.getItem(dbKey) || '{}'), // { "curso|nombre": {curso,nombre,saldo} }
+    selected: null, // "curso|nombre"
+    unlocked: false,
+    pinHash: localStorage.getItem(pinKey) || null,
+    cfg: JSON.parse(localStorage.getItem(cfgKey) || '{"mode":"none"}'),
+    pending: JSON.parse(localStorage.getItem(pendKey) || '[]'), // cola de resp.
+    failCount: 0,
+    autolockTimer: null
+  };
+
+  const encoder = new TextEncoder();
+  async function sha256(txt){
+    const buf = await crypto.subtle.digest('SHA-256', encoder.encode(txt));
+    return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+  }
+
+  function saveDB(){ localStorage.setItem(dbKey, JSON.stringify(state.data)); }
+  function saveCFG(){ localStorage.setItem(cfgKey, JSON.stringify(state.cfg)); }
+  function savePEND(){ localStorage.setItem(pendKey, JSON.stringify(state.pending)); }
+
+  function key(curso,nombre){ return (curso.trim().toUpperCase())+'|'+(nombre.trim()); }
+
+  function cursosList(){
+    const set = new Set(['PROFES']);
+    for(const k in state.data){ const c = state.data[k].curso.trim().toUpperCase(); if(c) set.add(c); }
+    return Array.from(set).sort();
+  }
+
+  function gradoDe(curso){
+    const m = curso.match(/^(\d{1,2})/);
+    return m ? m[1] : (curso==='PROFES' ? 'PROFES' : '');
+  }
+
+  function totalGeneral(){
+    return Object.values(state.data).reduce((a,r)=>a+(r.saldo||0),0);
+  }
+
+  function totalCurso(filtroCurso){
+    let sum=0;
+    for(const r of Object.values(state.data)){
+      if(!filtroCurso) sum+=r.saldo||0;
+      else if(r.curso.toUpperCase()===filtroCurso.toUpperCase()) sum+=r.saldo||0;
+    }
+    return sum;
+  }
+
+  function renderCursos(){
+    const sel = $('#selCurso');
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">Todos los cursos</option><option>PROFES</option>' +
+      cursosList().filter(c=>c!=='PROFES').map(c=>`<option>${c}</option>`).join('');
+    if([...sel.options].some(o=>o.value===cur)) sel.value = cur;
+  }
+
+  function renderLista(){
+    const grado = $('#selGrado').value.trim();
+    const cursoSel = $('#selCurso').value.trim().toUpperCase();
+    const q = $('#txtBuscar').value.trim().toLowerCase();
+
+    const arr = Object.values(state.data).filter(r=>{
+      const gOK = !grado || gradoDe(r.curso)===grado;
+      const cOK = !cursoSel || r.curso.toUpperCase()===cursoSel;
+      const nOK = !q || r.nombre.toLowerCase().includes(q);
+      return gOK && cOK && nOK;
+    }).sort((a,b)=> a.curso.localeCompare(b.curso) || a.nombre.localeCompare(b.nombre));
+
+    const cont = $('#lista'); cont.innerHTML='';
+    arr.forEach(r=>{
+      const div = document.createElement('div');
+      div.className='item';
+      div.innerHTML = `
+        <div>
+          <strong>${r.nombre}</strong> <span class="tag">${r.curso}</span>
+        </div>
+        <div class="right">
+          <span class="nowrap ${r.saldo>=0?'ok':'danger'}"><b>${fmt(r.saldo)}</b></span>
+          <button class="ghost selBtn">Seleccionar</button>
+        </div>`;
+      div.querySelector('.selBtn').onclick = ()=>{ state.selected = key(r.curso,r.nombre); renderSel(); };
+      cont.appendChild(div);
+    });
+
+    $('#totalGeneral').textContent = fmt(totalGeneral());
+    $('#totalAlumnos').textContent = Object.keys(state.data).length;
+    $('#totalCurso').textContent = cursoSel? fmt(totalCurso(cursoSel)) : fmt(arr.reduce((a,r)=>a+r.saldo,0));
+  }
+
+  function renderSel(){
+    if(!state.selected || !state.data[state.selected]) { $('#selInfo').textContent='Sin alumno seleccionado.'; $('#historial').innerHTML=''; return; }
+    const r = state.data[state.selected];
+    $('#selInfo').innerHTML = `<b>${r.nombre}</b> — <span class="tag">${r.curso}</span> — Saldo: <b>${fmt(r.saldo)}</b>`;
+    renderHist(r.nombre, r.curso);
+  }
+
+  function renderLock(){
+    const badge = $('#lockBadge');
+    badge.textContent = state.unlocked ? 'Desbloqueado' : 'Bloqueado';
+    badge.className = 'badge lock ' + (state.unlocked?'unlocked':'locked');
+    $('#btnLockToggle').textContent = state.unlocked ? 'Bloquear' : 'Desbloquear';
+  }
+
+  function renderBackupBadge(){
+    const b = $('#backupModeBadge');
+    const m = state.cfg.mode || 'none';
+    b.textContent = m==='drive' ? 'Drive activo' : (m==='sheets' ? 'Sheets activo' : 'Sin respaldo');
+  }
+
+  function fmt(n){ return (n||0).toLocaleString('es-CO',{style:'currency',currency:'COP',maximumFractionDigits:0}); }
+
+  function touch(){ // reinicia auto-bloqueo
+    if(state.autolockTimer) clearTimeout(state.autolockTimer);
+    state.autolockTimer = setTimeout(()=>{ state.unlocked=false; renderLock(); }, 2*60*1000);
+  }
+
+  function assertUnlocked(){
+    if(!state.unlocked){ alert('Bloqueado. Desbloquea con tu PIN.'); return false; }
+    touch(); return true;
+  }
+
+  function addHist(nombre, curso, delta, saldo){
+    const h = JSON.parse(localStorage.getItem(histKey) || '[]');
+    h.push({t: new Date().toISOString(), curso, nombre, delta, saldo});
+    localStorage.setItem(histKey, JSON.stringify(h));
+  }
+
+  function renderHist(nombre, curso){
+    const h = JSON.parse(localStorage.getItem(histKey) || '[]').filter(x=>x.nombre===nombre && x.curso===curso).slice(-50).reverse();
+    $('#historial').innerHTML = h.length ? '<ul>'+ h.map(x=>`<li>${new Date(x.t).toLocaleString()} — ${x.delta>=0?'+':''}${fmt(x.delta)} → ${fmt(x.saldo)}</li>`).join('') + '</ul>' : '<i>Sin movimientos.</i>';
+  }
+
+  function addPending(op){ // para respaldo offline
+    state.pending.push(op); savePEND();
+  }
+
+  // ====== Eventos UI ======
+  window.addEventListener('online', ()=>{ $('#onlineBadge').textContent='Online'; });
+  window.addEventListener('offline', ()=>{ $('#onlineBadge').textContent='Offline'; });
+  $('#onlineBadge').textContent = navigator.onLine ? 'Online' : 'Offline';
+
+  $('#selGrado').onchange = ()=>{ renderLista(); renderCursos(); };
+  $('#selCurso').onchange = ()=> renderLista();
+  $('#txtBuscar').oninput = ()=> renderLista();
+  $('#btnNuevo').onclick = ()=>{
+    $('#nuevoCurso').value = $('#selCurso').value || ($('#selGrado').value?($('#selGrado').value+'A'):'PROFES');
+    $('#nuevoNombre').value=''; dlgNuevo.showModal();
+  };
+  $('#btnCrear').onclick = ()=>{
+    if(!assertUnlocked()) return;
+    const nombre = ($('#nuevoNombre').value||'').trim(); const curso = ($('#nuevoCurso').value||'').trim().toUpperCase();
+    if(!nombre || !curso){ alert('Completa nombre y curso'); return; }
+    const k = key(curso,nombre);
+    if(state.data[k]){ alert('Ya existe'); return; }
+    state.data[k] = {curso, nombre, saldo:0};
+    saveDB(); renderCursos(); renderLista(); dlgNuevo.close();
+    addPending({type:'fullDump'}); queueBackup();
+  };
+
+  $$('.quick').forEach(b=> b.onclick = ()=>{ $('#monto').value = (Number($('#monto').value||0) + Number(b.dataset.d)).toString(); });
+
+  $('#btnSumar').onclick = ()=> mover( +Number($('#monto').value||0) );
+  $('#btnRestar').onclick = ()=> mover( -Math.abs(Number($('#monto').value||0)) );
+
+  function mover(delta){
+    if(!assertUnlocked()) return;
+    if(!state.selected || !state.data[state.selected]){ alert('Selecciona un alumno'); return; }
+    if(!delta){ alert('Monto inválido'); return; }
+    const r = state.data[state.selected];
+    r.saldo = (r.saldo||0) + delta;
+    saveDB(); addHist(r.nombre, r.curso, delta, r.saldo);
+    renderSel(); renderLista();
+    addPending({type:'delta', curso:r.curso, nombre:r.nombre, delta, saldo:r.saldo, at:new Date().toISOString()});
+    queueBackup();
+    $('#monto').value='';
+  }
+
+  $('#btnExport').onclick = ()=>{
+    const rows = [['curso','nombre','saldo']];
+    for(const r of Object.values(state.data)){ rows.push([r.curso, r.nombre, r.saldo]); }
+    const csv = rows.map(r=>r.map(x=> `"${String(x).replace(/"/g,'""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download='fiar_chocolates.csv'; a.click();
+  };
+
+  $('#fileCSV').onchange = (e)=>{
+    if(!assertUnlocked()) return;
+    const f = e.target.files[0]; if(!f) return;
+    const reader = new FileReader();
+    reader.onload = ()=> {
+      const lines = String(reader.result).trim().split(/\r?\n/);
+      const [h0,h1,h2] = lines[0].split(',').map(s=>s.replace(/(^"|"$)/g,'').toLowerCase());
+      if(!(h0.startsWith('curso') && h1.startsWith('nombre') && h2.startsWith('saldo'))){ alert('CSV inválido. Encabezado: curso,nombre,saldo'); return; }
+      const newDB = {};
+      for(let i=1;i<lines.length;i++){
+        const cols = parseCSVLine(lines[i]); if(cols.length<3) continue;
+        const curso = cols[0].trim().toUpperCase(); const nombre = cols[1].trim(); const saldo = Number(cols[2]||0);
+        newDB[key(curso,nombre)] = {curso,nombre,saldo};
+      }
+      state.data = newDB; saveDB(); renderCursos(); renderLista(); state.selected=null; renderSel();
+      addPending({type:'fullDump'}); queueBackup();
+      e.target.value='';
+    };
+    reader.readAsText(f,'utf-8');
+  };
+
+  function parseCSVLine(line){
+    // simple CSV parser for "quoted","values"
+    const out=[]; let cur=''; let inQ=false;
+    for(let i=0;i<line.length;i++){
+      const ch=line[i];
+      if(inQ){
+        if(ch=='"' && line[i+1]=='"'){ cur+='"'; i++; }
+        else if(ch=='"'){ inQ=false; }
+        else cur+=ch;
+      }else{
+        if(ch==','){ out.push(cur); cur=''; }
+        else if(ch=='"'){ inQ=true; }
+        else cur+=ch;
+      }
+    }
+    out.push(cur); return out;
+  }
+
+  // ====== PIN / Lock ======
+  $('#btnPIN').onclick = ()=> dlgPIN.showModal();
+  $('#btnLockToggle').onclick = ()=> {
+    if(state.unlocked){ state.unlocked=false; renderLock(); }
+    else dlgPIN.showModal();
+  };
+  $('#btnTryUnlock').onclick = async ()=>{
+    const pin = $('#pinDesbloq').value.trim();
+    if(!pin){ $('#pinMsg').textContent='Escribe tu PIN.'; return; }
+    if(!state.pinHash){ $('#pinMsg').textContent='No hay PIN configurado. Crea uno arriba.'; return; }
+    const h = await sha256(pin);
+    if(h===state.pinHash){
+      state.unlocked = true; renderLock(); $('#pinMsg').textContent='✓ Desbloqueado'; dlgPIN.close(); touch();
+    }else{
+      state.failCount++; $('#pinMsg').textContent='PIN incorrecto.';
+      if(state.failCount>=3){ alert('Demasiados intentos. Espera 30 segundos.'); $('#btnTryUnlock').disabled=true; setTimeout(()=>{$('#btnTryUnlock').disabled=false; state.failCount=0;},30000); }
+    }
+  };
+  $('#btnSetPIN').onclick = async ()=>{
+    const actual = $('#pinActual').value.trim();
+    const n1 = $('#pinNuevo').value.trim();
+    const n2 = $('#pinNuevo2').value.trim();
+    if(n1!==n2 || n1.length<4){ alert('El PIN debe tener 4–8 dígitos y coincidir.'); return; }
+    if(state.pinHash){
+      if(!actual){ alert('Ingresa tu PIN actual.'); return; }
+      const ok = await sha256(actual)===state.pinHash;
+      if(!ok){ alert('PIN actual incorrecto.'); return; }
+    }
+    state.pinHash = await sha256(n1);
+    localStorage.setItem(pinKey, state.pinHash);
+    state.unlocked = true; renderLock(); dlgPIN.close(); touch();
+  };
+
+  // ====== Backup (Google) ======
+  const SCOPES = {
+    drive: 'https://www.googleapis.com/auth/drive.file',
+    sheets: 'https://www.googleapis.com/auth/spreadsheets'
+  };
+  let gapiReady = false, googleAuthed = false;
+
+  function updateGStatus(msg){ $('#gstatus').textContent = msg; }
+
+  async function initGoogle(){
+    try{
+      await new Promise(res=>{ if(window.gapi) gapi.load('client', res); else res(); });
+      if(window.gapi){
+        await gapi.client.init({ apiKey: state.cfg.apiKey, discoveryDocs: [
+          'https://www.googleapis.com/discovery/v1/apis/drive/v3/rest',
+          'https://sheets.googleapis.com/$discovery/rest?version=v4'
+        ]});
+      }
+      gapiReady = true; updateGStatus('Google listo.');
+    }catch(e){ updateGStatus('Error inicializando Google: '+e.message); }
+  }
+
+  async function ensureAuth(){
+    if(!(state.cfg.clientId && state.cfg.apiKey)){ updateGStatus('Configura API Key y Client ID.'); return false; }
+    const mode = state.cfg.mode||'none';
+    const scope = mode==='drive' ? SCOPES.drive : (mode==='sheets' ? SCOPES.sheets : '');
+    if(!scope){ return false; }
+    return new Promise((resolve)=>{
+      google.accounts.oauth2.initTokenClient({
+        client_id: state.cfg.clientId,
+        scope,
+        callback: (resp)=>{
+          if(resp && resp.access_token){ googleAuthed = true; resolve(true); }
+          else{ updateGStatus('No autorizado.'); resolve(false); }
+        }
+      }).requestAccessToken({prompt: 'consent'});
+    });
+  }
+
+  async function backupNow(){
+    const mode = state.cfg.mode||'none';
+    if(mode==='none'){ updateGStatus('Respaldo desactivado.'); return; }
+    if(!navigator.onLine){ updateGStatus('Sin conexión. En cola.'); return; }
+    if(!gapiReady) await initGoogle();
+    const ok = await ensureAuth(); if(!ok) return;
+
+    if(mode==='drive') await backupDriveFull();
+    else if(mode==='sheets') await flushPendToSheets();
+  }
+
+  let bkTimer=null;
+  function queueBackup(){
+    if(bkTimer) clearTimeout(bkTimer);
+    bkTimer = setTimeout(backupNow, 1500); // debounced
+  }
+
+  async function backupDriveFull(){
+    // Subir JSON completo al archivo "fiar_chocolates_backup.json"
+    const content = JSON.stringify(state.data);
+    const metadata = {name: 'fiar_chocolates_backup.json', mimeType: 'application/json'};
+    if(state.cfg.driveFolder) metadata.parents = [state.cfg.driveFolder];
+
+    // Buscar si ya existe
+    const q = `name='fiar_chocolates_backup.json' and trashed=false` + (state.cfg.driveFolder?` and '${state.cfg.driveFolder}' in parents`:``);
+    const found = await gapi.client.drive.files.list({q, fields:'files(id,name)'});
+    const fileId = (found.result.files[0]||{}).id;
+
+    const boundary = '-------314159265358979323846';
+    const delimiter = "\\r\\n--" + boundary + "\\r\\n";
+    const closeDelim = "\\r\\n--" + boundary + "--";
+
+    const body =
+      delimiter + 'Content-Type: application/json\\r\\n\\r\\n' + JSON.stringify(metadata) +
+      delimiter + 'Content-Type: application/json\\r\\n\\r\\n' + content + closeDelim;
+
+    const path = fileId ? `https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=multipart` :
+                          `https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart`;
+
+    const method = fileId ? 'PATCH' : 'POST';
+    await gapi.client.request({
+      path, method,
+      headers: {'Content-Type': 'multipart/related; boundary="'+boundary+'"'},
+      body
+    });
+    updateGStatus('Drive: respaldo completo actualizado.');
+  }
+
+  async function flushPendToSheets(){
+    const pend = JSON.parse(localStorage.getItem(pendKey) || '[]');
+    if(!pend.length){ updateGStatus('Sheets: no hay pendientes.'); return; }
+    if(!state.cfg.sheetId){ updateGStatus('Configura Sheet ID.'); return; }
+
+    const rows = pend.filter(p=>p.type==='delta').map(p=>[
+      p.at || new Date().toISOString(), p.curso, p.nombre, p.delta, p.saldo
+    ]);
+    if(!rows.length){ updateGStatus('Sheets: sin movimientos.'); return; }
+
+    await gapi.client.sheets.spreadsheets.values.append({
+      spreadsheetId: state.cfg.sheetId,
+      range: 'A:E',
+      valueInputOption: 'RAW',
+      insertDataOption: 'INSERT_ROWS',
+      resource: { values: rows }
+    });
+    // Limpiar del buffer solo los enviados
+    state.pending = pend.filter(p=>p.type!=='delta'); savePEND();
+    updateGStatus('Sheets: movimientos enviados.');
+  }
+
+  // Botones settings
+  $('#btnSettings').onclick = ()=>{ // cargar cfg
+    const m = state.cfg.mode||'none';
+    $$('input[name="bkMode"]').forEach(r=> r.checked = (r.value===m));
+    $('#cfgApiKey').value = state.cfg.apiKey||'';
+    $('#cfgClientId').value = state.cfg.clientId||'';
+    $('#cfgSheetId').value = state.cfg.sheetId||'';
+    $('#cfgDriveFolder').value = state.cfg.driveFolder||'';
+    dlgSettings.showModal();
+  };
+  $('#btnSaveCfg').onclick = ()=>{
+    state.cfg.apiKey = $('#cfgApiKey').value.trim();
+    state.cfg.clientId = $('#cfgClientId').value.trim();
+    state.cfg.sheetId = $('#cfgSheetId').value.trim();
+    state.cfg.driveFolder = $('#cfgDriveFolder').value.trim();
+    const mode = $$('input[name="bkMode"]').find(r=>r.checked)?.value || 'none';
+    state.cfg.mode = mode;
+    saveCFG(); renderBackupBadge(); dlgSettings.close();
+  };
+  $('#btnGoogleInit').onclick = ()=> initGoogle();
+  $('#btnGoogleSign').onclick = ()=> ensureAuth();
+  $('#btnGoogleSignOut').onclick = ()=>{
+    googleAuthed=false; updateGStatus('Sesión cerrada (revoca desde tu cuenta Google si deseas).');
+  };
+  $('#btnBackupNow').onclick = ()=> backupNow();
+  $('#btnFlush').onclick = ()=> flushPendToSheets();
+
+  // ====== Inicio ======
+  (function init(){
+    renderCursos(); renderLista(); renderSel(); renderLock(); renderBackupBadge();
+    document.addEventListener('click', touch, {passive:true});
+    document.addEventListener('keydown', touch, {passive:true});
+    if('serviceWorker' in navigator){ navigator.serviceWorker.register('./sw.js'); }
+  })();
+  </script>
+
+  <footer class="wrap help" style="margin-top:24px;margin-bottom:24px">
+    <hr>
+    <details>
+      <summary>Pasos para activar <b>PWA</b> y <b>Respaldo</b></summary>
+      <ol>
+        <li><b>PWA:</b> guarda este archivo junto con <code>manifest.webmanifest</code>, <code>sw.js</code> y la carpeta <code>icons/</code> (ver abajo). Debe servirse por <b>HTTPS</b> o <b>localhost</b> (no funciona como file://). Puedes usar GitHub Pages, Netlify o un servidor local (p.ej. <code>python -m http.server</code>).</li>
+        <li>Abre la URL en tu celular (Chrome) → menú “<b>Instalar app</b>” o “<b>Añadir a pantalla de inicio</b>”.</li>
+        <li><b>Respaldo (Google):</b> crea un proyecto en Google Cloud → habilita APIs <i>Drive API</i> y <i>Sheets API</i>. Crea una <i>API Key</i> y un <i>OAuth Client ID</i> (tipo <i>Web</i>). Agrega tu dominio a <i>Authorized JavaScript origins</i> (si usas GitHub Pages, por ejemplo).</li>
+        <li>Si usas <b>Sheets</b>: crea una hoja y copia su <i>Sheet ID</i> (lo de la URL). La app guardará movimientos en columnas A:E (fecha, curso, nombre, delta, saldo).</li>
+        <li>Si usas <b>Drive</b>: opcionalmente crea o copia el <i>Folder ID</i> destino. Si lo dejas vacío, el archivo se guardará en “Mi unidad”.</li>
+        <li>En la app: abre <b>Respaldo</b> → pega <i>API Key</i>, <i>Client ID</i> y según el modo, <i>Sheet ID</i>/<i>Folder ID</i> → “<b>Inicializar Google</b>” → “<b>Iniciar sesión</b>”.</li>
+      </ol>
+    </details>
+    <p class="help">Iconos: coloca <code>icons/icon-192.png</code> y <code>icons/icon-512.png</code> (pueden ser cualquier PNG cuadrado). Colores: <span style="background:#1b5e20;color:#fff;padding:2px 6px;border-radius:4px">#1b5e20</span>.</p>
+  </footer>
+</body>
+</html>
